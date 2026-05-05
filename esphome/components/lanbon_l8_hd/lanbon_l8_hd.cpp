@@ -42,6 +42,8 @@
 \*********************************************************************************************/
 
 #include "lanbon_l8_hd.h"
+#include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace lanbon_l8_hd {
@@ -93,7 +95,8 @@ void LocalDimmerOutput::write_state(light::LightState *state) {
 }
 
 void LocalDimmerOutput::start_dimmer_() {
-  this->power_relay_->turn_on();
+  if (this->power_relay_ != nullptr)
+    this->power_relay_->turn_on();
 
   uint8_t attn_command[1] = {0x20};
   this->write_command_(attn_command, sizeof(attn_command));
@@ -105,7 +108,13 @@ void LocalDimmerOutput::start_dimmer_() {
 
 void LocalDimmerOutput::control_dimmer_(const bool binary, const uint8_t brightness) {
   if (!binary) {
-    this->power_relay_->turn_off();
+    // Send 0% brightness command to explicitly turn off dimmer MCU
+    uint8_t cmd[4] = {0xEF, 0x02, 0x00, 0xED};
+    ESP_LOGVV(TAG, "Setting dimmer state to %s, raw brightness=%d", ONOFF(binary), cmd[2]);
+    this->write_command_(cmd, sizeof(cmd));
+
+    if (this->power_relay_ != nullptr)
+      this->power_relay_->turn_off();
     return;
   }
 
